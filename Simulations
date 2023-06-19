@@ -1,0 +1,194 @@
+##### These codes for N simulations to obtain robust results
+
+### 1.1 load packages
+library(readxl)
+
+### 1.2 prepare the data which has been selected
+data <- read.csv("proteins_data.csv")
+# split data into train sub-data and validation sub-dara
+train_sub <- sample(nrow(data),7/10*nrow(data))
+train_data <- data[train_sub,]
+test_data <- data[-train_sub,]
+
+### 2.1 xgboot algorithm 
+#install.packages("xgboost")
+library(xgboost)
+library(Matrix)
+
+### 3.1 generate two matrixs to record results---xgboost
+A<-matrix(0,nrow=200,ncol=1)
+B<-matrix(0,nrow=200,ncol=2)
+N <- c(1:200)
+for(i in N){
+  train_sub <- sample(nrow(data),7/10*nrow(date)) # each sample is different due to randomization
+  train_data <- data[train_sub,]
+  test_data <- data[-train_sub,]
+  #data pretreatment for train data
+  # change independent variables into matrix
+  traindata1 <- data.matrix(train_data[,c(2:10)])
+  # change 'traindata1' into sparse matrix by using Matrix function
+  traindata2 <- Matrix(traindata1,sparse = T)
+  # get respondents
+  traindata3 <- train_data[,11]
+  # list the independent variables and respondents
+  traindata4 <- list(data = traindata2,label = traindata3)
+  # construct object for xgb.DMatrix,the object is sparse matrix
+  dtrain <- xgb.DMatrix(data = traindata4$data,label = traindata4$label)
+  ### data pretreatment for test data
+  # change independent variables into matrix
+  testset1 <- data.matrix(test_data[,c(2:10)])
+  # change 'traindata1' into sparse matrix by using Matrix function
+  testset2 <- Matrix(testset1,sparse = T)
+  ## get respondents
+  testset3 <- test_data[,11]
+  # list the independent variables and respondents
+  testset4 <- list(data = testset2,label=testset3)
+  # construct object for xgb.DMatrix,the object is sparse matrix
+  dtest <- xgb.DMatrix(data = testset4$data,label = testset4$label)
+  #  model
+  xgb <- xgboost(data = dtrain,max_depth=6, eta=0.5,  objective='binary:logistic', nround=25)
+  
+  # predict in test data
+  pre_xgb <- round(predict(xgb, newdata = dtest))
+  roc<-roc(test_data$depression,as.numeric(pre_xgb),ci=T)  # generate the roc curve
+  A[i]<-auc(roc)              # put the roc into the ith row of matrix A
+  B[i,1]<-ci(roc,of="auc")[1] # put the lower bound of the CI of auc into the ith row and 1st column of matrix B
+  B[i,2]<-ci(roc,of="auc")[3] # put the higher bound of the CI of auc into the ith row and 1st column of matrix B
+}
+write.csv(A,file = "simulation mean for xgb")
+# write.csv(B,file = "simulation ci for xgb")
+
+
+### 3.2  generate two matrixs to record results---bpnn
+A2<-matrix(0,nrow=200,ncol=1)
+B2<-matrix(0,nrow=200,ncol=2)
+N <- c(1:200)
+for(i in N){
+  
+  # split d78 into train sub-data and validation sub-dara
+  train_sub <- sample(nrow(d0708),7/10*nrow(d0708))
+  train_data <- d0708[train_sub,]
+  test_data <- d0708[-train_sub,]
+  # load packages
+  library(grid)
+  library(MASS)
+  library(neuralnet)
+  # model1
+  net <- neuralnet(depression ~ P558+P48637+Q14676+AA87WSY6+O15144+J3QRN2+Q99784+B7ZKJ8+AA3B3IRN5,
+                   data = train_data,
+                   hidden = 1,threshold = 0.005,learningrate = 0.1,
+                   algorithm = "rprop+",err.fct = "sse",
+                   act.fct = "logistic")
+  #print(net)
+  # plot
+  #plot(net)
+  # predict in test data
+  pre_net <-  round(predict(net, newdata = test_data))
+  roc<-roc(test_data$depression,as.numeric(pre_net),ci=T)  # generate the roc curve
+  A2[i]<-auc(roc)              #put the roc into the ith row of matrix A
+  B2[i,1]<-ci(roc,of="auc")[1] #put the lower bound of the CI of auc into the ith row and 1st column of matrix B
+  B2[i,2]<-ci(roc,of="auc")[3] #put the higher bound of the CI of auc into the ith row and 1st column of matrix B
+}
+
+write.csv(A2,file = "simulation mean for bpnn")
+write.csv(B2,file = "simulation ci for bpnn")
+
+### 3.3 generate two matrixs to record results---svm
+A3<-matrix(0,nrow=200,ncol=1)
+B3<-matrix(0,nrow=200,ncol=2)
+N <- c(1:200)
+for(i in N){
+  
+  # split d78 into train sub-data and validation sub-dara
+  train_sub <- sample(nrow(d0708),7/10*nrow(d0708))
+  train_data <- d0708[train_sub,]
+  test_data <- d0708[-train_sub,]
+  library(e1071)
+  # pretreatment for data
+  train_data$depression <- as.factor(train_data$depression)
+  test_data$depression <- as.factor(test_data$depression)
+  # model
+  svm_model <- svm(depression ~  P558+  P48637+ Q14676+ AA87WSY6+ O15144 +J3QRN2+   Q99784+B7ZKJ8+AA3B3IRN5,
+                   data = train_data,
+                   type = "C", kernel = "radial")
+  # predict in test data
+  pre_svm <-  predict(svm_model, newdata = test_data)
+  # intergrate true value and predict value
+  obs_p_svm <-  data.frame(prob=pre_svm,obs=test_data$depression)
+  roc<-roc(test_data$depression,as.numeric(pre_svm),ci=T)  # generate the roc curve
+  A3[i]<-auc(roc)               #put the roc into the ith row of matrix A
+  B3[i,1]<-ci(roc,of="auc")[1]  #put the lower bound of the CI of auc into the ith row and 1st column of matrix B
+  B3[i,2]<-ci(roc,of="auc")[3]  #put the higher bound of the CI of auc into the ith row and 1st column of matrix B
+}
+
+write.csv(A3,file = "simulation mean for svm")
+write.csv(B3,file = "simulation ci for svm")
+
+
+### 3.4 generate two matrixs to record results---RF
+A4<-matrix(0,nrow=200,ncol=1)
+B4<-matrix(0,nrow=200,ncol=2)
+N <- c(1:200)
+
+for(i in N){
+  
+  # split d78 into train sub-data and validation sub-dara
+  train_sub <- sample(nrow(d0708),7/10*nrow(d0708))
+  train_data <- d0708[train_sub,]
+  test_data <- d0708[-train_sub,]
+  # library package
+  library(randomForest)
+  # pretreatment for data
+  train_data$depression <- as.factor(train_data$depression)
+  test_data$depression <- as.factor(test_data$depression)
+  # model
+  rf_model <- randomForest(depression ~  P558+  P48637+ Q14676+ AA87WSY6+ O15144 +J3QRN2+   Q99784+B7ZKJ8+AA3B3IRN5,
+                           data = train_data,
+                           ntree = 500,
+                           ntry = 3,
+                           importance = TRUE,
+                           proximity = TRUE)
+  # check the importance of independent variables
+  #rf_model$importance
+  #varImpPlot( rf_model,main = "variable importance")
+  # predict in test data
+  pre_rf <-  predict(rf_model, newdata = test_data)
+  # intergrate true value and predict value
+  obs_p_rf <-  data.frame(prob=pre_rf,obs=test_data$depression)
+  roc<-roc(test_data$depression,as.numeric(pre_rf),ci=T)  # generate the roc curve
+  A4[i]<-auc(roc)              #put the roc into the ith row of matrix A
+  B4[i,1]<-ci(roc,of="auc")[1] #put the lower bound of the CI of auc into the ith row and 1st column of matrix B
+  B4[i,2]<-ci(roc,of="auc")[3] #put the higher bound of the CI of auc into the ith row and 1st column of matrix B
+}
+
+write.csv(A4,file = "simulation mean for rf")
+write.csv(B4,file = "simulation ci for rf")
+
+
+### 3.5 generate two matrixs to record results ---LR
+A5<-matrix(0,nrow=200,ncol=1)
+B5<-matrix(0,nrow=200,ncol=2)
+N <- c(1:200)
+for(i in N){
+  
+  # split d78 into train sub-data and validation sub-dara
+  train_sub <- sample(nrow(d0708),7/10*nrow(d0708))
+  train_data <- d0708[train_sub,]
+  test_data <- d0708[-train_sub,]
+  # model
+  lg_model <- glm(depression ~  P558+  P48637+ Q14676+ AA87WSY6+ O15144 +J3QRN2+   Q99784+B7ZKJ8+AA3B3IRN5,
+                  data = train_data,
+                  family = binomial(link = "logit"))
+  
+  # predict in test data
+  pre_lg <-  predict(lg_model, newdata = test_data)
+  # intergrate true value and predict value
+  obs_p_lg <-  data.frame(prob=pre_lg,obs=test_data$depression)
+  roc<-roc(test_data$depression,as.numeric(pre_lg),ci=T)  # generate the roc curve
+  A5[i]<-auc(roc)                #put the roc into the ith row of matrix A
+  B5[i,1]<-ci(roc,of="auc")[1]   #put the lower bound of the CI of auc into the ith row and 1st column of matrix B
+  B5[i,2]<-ci(roc,of="auc")[3]   #put the higher bound of the CI of auc into the ith row and 1st column of matrix B
+}
+
+write.csv(A5,file = "simulation mean for lr")
+write.csv(B5,file = "simulation ci for lr")
