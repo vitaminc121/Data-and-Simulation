@@ -1,19 +1,22 @@
-#1.1 load packages
+###### These codes aims for valiating the predictive performance of feature proteins
+
+###1.1 load packages
 library(readxl)
-#1.2 prepare the data which has been selected
+
+###1.2 prepare the data which has been selected
 data1 <- read.csv("proteins_data.csv")
 # split data1 into train sub-data and validation sub-dara
 train_sub <- sample(nrow(data1),7/10*nrow(data1))
 train_data <- data1[train_sub,]
 test_data <- data1[-train_sub,]
 
-# 2.1 xgboot algorithm 
+
+### 2.1 xgboot algorithm 
 #install.packages("xgboost")
 library(xgboost)
 library(Matrix)
 
-### data pretreatment for train data
-# change independent variables into matrix
+# data pretreatment for train data, and change independent variables into matrix
 traindata1 <- data.matrix(train_data[,c(2:10)])
 # change 'traindata1' into sparse matrix by using Matrix function
 traindata2 <- Matrix(traindata1,sparse = T)
@@ -24,12 +27,12 @@ traindata4 <- list(data = traindata2,label = traindata3)
 # construct object for xgb.DMatrix,the object is sparse matrix
 dtrain <- xgb.DMatrix(data = traindata4$data,label = traindata4$label)
 
-### data pretreatment for test data
+# data pretreatment for test data
 # change independent variables into matrix
 testset1 <- data.matrix(test_data[,c(2:10)])
 # change 'traindata1' into sparse matrix by using Matrix function
 testset2 <- Matrix(testset1,sparse = T)
-## get respondents
+# get respondents
 testset3 <- test_data[,11]
 # list the independent variables and respondents
 testset4 <- list(data = testset2,label=testset3)
@@ -51,7 +54,8 @@ plot(xgboost_roc,print.auc=TRUE, auc.polygon=TRUE,grid=c(.1,.2),
      auc.polygon.col="skyblue",print.thres = TRUE,
      main = "performance of xgboost model")
 
-# 2.2 BPNN model
+
+### 2.2 BPNN model
 # load packages
 library(grid)
 library(MASS)
@@ -78,7 +82,8 @@ plot(net_roc,print.auc=TRUE, auc.polygon=TRUE,grid=c(.1,.2),
      auc.polygon.col="skyblue",print.thres = TRUE,
      main = "performance of BPNN model")
 
-# 2.3 SVM model
+
+### 2.3 SVM model
 # load packages
 library(e1071)
 # pretreatment for data
@@ -103,7 +108,8 @@ plot(svm_roc,print.auc=TRUE, auc.polygon=TRUE,grid=c(.1,.2),
      auc.polygon.col="skyblue",print.thres = TRUE,
      main = "performance of SVM model")
 
-# 2.4 randomForest model
+
+### 2.4 randomForest model
 # library package
 library(randomForest)
 # pretreatment for data
@@ -133,7 +139,8 @@ plot(rf_roc,print.auc=TRUE, auc.polygon=TRUE,grid=c(.1,.2),
      auc.polygon.col="skyblue",print.thres = TRUE,
      main = "performance of rf model:mtry=3,ntree=500")
 
-# 2.5 logistic regression
+
+### 2.5 logistic regression
 # model
 lg_model <- glm(depression ~  P558+  P48637+ Q14676+ AA87WSY6+ O15144 +J3QRN2+   Q99784+B7ZKJ8+AA3B3IRN5,
                  data = train_data,
@@ -153,7 +160,7 @@ plot(lg_roc,print.auc=TRUE, auc.polygon=TRUE,grid=c(.1,.2),
      auc.polygon.col="skyblue",print.thres = TRUE,
      main = "performance of lg model")
 
-#  rocs of different models in one plotc-1
+### 3.1  rocs of different models in one plotc-1
 plot(xgboost_roc,col="red")
 plot(net_roc,add = TRUE, col = 'green')
 plot(svm_roc,add = TRUE, col = 'black')
@@ -165,7 +172,7 @@ legend("bottomright",
        col = c("red","green","black","blue","pink"),
        lty = 1,lwd =2)
        
-# rocs of different models in one plotc-2
+### 3.2 rocs of different models in one plotc-2
 library(pROC)
 library(ggplot2)
 #g <- ggroc(xgboost_roc)
