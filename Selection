@@ -1,0 +1,93 @@
+###### These codes aim for selecting the feature proteins #######
+# 1   load package and prepare dataset
+library(readxl)
+library(dplyr)
+data <- read.csv("protemics_data_raw.csv")
+data <- data %>% select_if(~!any(is.na(.)))
+data <- data[,-c(1,692)]
+
+
+#### 2  Boruta method for future selection
+# install.packages('Boruta')
+library(Boruta)
+# Perform Boruta search
+boruta_output <- Boruta(depression ~ ., data=na.omit(data), doTrace=0)
+# check contents in Boruta
+names(boruta_output)
+# get the significant or potential variables
+boruta_signif <- getSelectedAttributes(boruta_output, withTentative = TRUE)
+print(boruta_signif)  
+# Do a tentative rough fix
+roughFixMod <- TentativeRoughFix(boruta_output)
+boruta_signif <- getSelectedAttributes(roughFixMod)
+print(boruta_signif)
+# Variable Importance Scores
+imps <- attStats(roughFixMod)
+imps2 = imps[imps$decision != 'Rejected', c('meanImp', 'decision')]
+head(imps2[order(-imps2$meanImp), ])  # descending sort
+# Plot variable importance
+plot(boruta_output, cex.axis=.7, las=2, xlab="", main="Variable Importance")  
+
+
+#### 3 variable importance from maching learning algorithms
+library(caret)
+set.seed(100)
+rPartMod <- train(as.factor(depression) ~ ., data=data, method="rpart")
+rpartImp <- varImp(rPartMod)
+print(rpartImp)
+
+
+#### 4 Train an RRF model and compute variable importance.
+set.seed(100)
+rrfMod <- train(as.factor(depression) ~ ., data=data, method="RRF")
+rrfImp <- varImp(rrfMod, scale=F)
+rrfImp
+plot(rrfImp, top = 20, main='Variable Importance')
+
+
+#### 5 Lasso Regression for feature selection
+library(glmnet)
+x <- as.matrix(data[,-690]) # all X vars
+y <- data[,690] # Only Class
+# Fit the LASSO model (Lasso: Alpha = 1)
+set.seed(100)
+cv.lasso <- cv.glmnet(x, y, family='binomial', alpha=1, parallel=TRUE, standardize=TRUE, type.measure='auc')
+# Results
+plot(cv.lasso)
+plot(cv.lasso$glmnet.fit, xvar="lambda", label=TRUE)
+cat('Min Lambda: ', cv.lasso$lambda.min, '\n 1Sd Lambda: ', cv.lasso$lambda.1se)
+df_coef <- round(as.matrix(coef(cv.lasso, s=cv.lasso$lambda.min)), 2)
+# See all contributing variables
+df_coef[df_coef[, 1] != 0, ]
+
+
+#### 6 Genetic Algorithm
+# define control function
+ga_ctrl <- gafsControl(functions = rfGA,  # another option is `caretGA`.
+                        method = "cv",
+                        repeats = 3)
+# run the algorithm
+set.seed(100)
+ga_obj <- gafs(x=data[,-690], 
+               y=as.factor(data[, 690]),
+               iters = 3,   # normally much higher (100+)
+               gafsControl = ga_ctrl)
+ga_obj
+# Optimal variables
+ga_obj$optVariables
+
+
+#### 6 Random Forest
+#  DALEX package
+library(randomForest)
+install.packages("DALEX")
+library(DALEX)
+# Train random forest model
+rf_mod <- randomForest(as.factor(depression) ~ ., data=data, ntree=100)
+rf_mod
+# Variable importance with DALEX
+explained_rf <- explain(rf_mod, data=data, y=data$depression)
+# Get the variable importances
+varimps = variable_importance(explained_rf, type='raw')
+print(varimps)
+plot(varimps)
