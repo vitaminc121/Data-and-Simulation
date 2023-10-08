@@ -1,59 +1,67 @@
-###### These codes aim for selecting the feature proteins #######
+###### These codes aim for selecting the feature proteins 
+#######
 # 1   load package and prepare dataset
 library(readxl)
 library(dplyr)
 data <- read.csv("protemics_data_raw.csv")
-data <- data %>% select_if(~!any(is.na(.)))
+data <- data %>% select_if(~!any(is.na(.))) # delect the missing value
 data <- data[,-c(1,692)]
 
 
-#### 2  Boruta method for future selection
+#### 2  # Boruta method for future selection
 # install.packages('Boruta')
 library(Boruta)
 # Perform Boruta search
 boruta_output <- Boruta(depression ~ ., data=na.omit(data), doTrace=0)
+
 # check contents in Boruta
 names(boruta_output)
+
 # get the significant or potential variables
 boruta_signif <- getSelectedAttributes(boruta_output, withTentative = TRUE)
 print(boruta_signif)  
+
 # Do a tentative rough fix
 roughFixMod <- TentativeRoughFix(boruta_output)
 boruta_signif <- getSelectedAttributes(roughFixMod)
 print(boruta_signif)
+
 # Variable Importance Scores
 imps <- attStats(roughFixMod)
 imps2 = imps[imps$decision != 'Rejected', c('meanImp', 'decision')]
 head(imps2[order(-imps2$meanImp), ])  # descending sort
+
 # Plot variable importance
-plot(boruta_output, cex.axis=.7, las=2, xlab="", main="Variable Importance")  
+plot(boruta_output, las=2, xlab="", main="Variable Importance",xlim=c(600,700))   
 
 
 #### 3 variable importance from maching learning algorithms
+# Train an RPA model and compute variable importance.
 library(caret)
 set.seed(100)
 rPartMod <- train(as.factor(depression) ~ ., data=data, method="rpart")
 rpartImp <- varImp(rPartMod)
 print(rpartImp)
+plot(rpartImp, top = 13,cex.axis=1.2,  main="Variable Importance")
 
 
-#### 4 Train an RRF model and compute variable importance.
+#### 4 # Train an RRF model and compute variable importance.
 set.seed(100)
 rrfMod <- train(as.factor(depression) ~ ., data=data, method="RRF")
 rrfImp <- varImp(rrfMod, scale=F)
 rrfImp
-plot(rrfImp, top = 20, main='Variable Importance')
+plot(rrfImp, top = 13, cex.axis=1.2,  main='Variable Importance')
 
-
-#### 5 Lasso Regression for feature selection
-library(glmnet)
+#### 5 library(glmnet)
 x <- as.matrix(data[,-690]) # all X vars
 y <- data[,690] # Only Class
+
 # Fit the LASSO model (Lasso: Alpha = 1)
 set.seed(100)
 cv.lasso <- cv.glmnet(x, y, family='binomial', alpha=1, parallel=TRUE, standardize=TRUE, type.measure='auc')
 # Results
 plot(cv.lasso)
+
 plot(cv.lasso$glmnet.fit, xvar="lambda", label=TRUE)
 cat('Min Lambda: ', cv.lasso$lambda.min, '\n 1Sd Lambda: ', cv.lasso$lambda.1se)
 df_coef <- round(as.matrix(coef(cv.lasso, s=cv.lasso$lambda.min)), 2)
@@ -61,33 +69,23 @@ df_coef <- round(as.matrix(coef(cv.lasso, s=cv.lasso$lambda.min)), 2)
 df_coef[df_coef[, 1] != 0, ]
 
 
-#### 6 Genetic Algorithm
+#### 6 # Genetic Algorithm
 # define control function
 ga_ctrl <- gafsControl(functions = rfGA,  # another option is `caretGA`.
-                        method = "cv",
-                        repeats = 3)
-# run the algorithm
+                       method = "cv",
+                       repeats = 3)
+
+# conduct feature selection
 set.seed(100)
 ga_obj <- gafs(x=data[,-690], 
                y=as.factor(data[, 690]),
-               iters = 3,   # normally much higher (100+)
+               iters = 200,   # normally much higher (100+)
                gafsControl = ga_ctrl)
+
 ga_obj
 # Optimal variables
 ga_obj$optVariables
 
+plot(ga_obj)
 
-#### 6 Random Forest
-#  DALEX package
-library(randomForest)
-install.packages("DALEX")
-library(DALEX)
-# Train random forest model
-rf_mod <- randomForest(as.factor(depression) ~ ., data=data, ntree=100)
-rf_mod
-# Variable importance with DALEX
-explained_rf <- explain(rf_mod, data=data, y=data$depression)
-# Get the variable importances
-varimps = variable_importance(explained_rf, type='raw')
-print(varimps)
-plot(varimps)
+
