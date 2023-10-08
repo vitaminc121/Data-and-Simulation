@@ -160,31 +160,217 @@ plot(lg_roc,print.auc=TRUE, auc.polygon=TRUE,grid=c(.1,.2),
      auc.polygon.col="skyblue",print.thres = TRUE,
      main = "performance of lg model")
 
-### 3.1  rocs of different models in one plotc-1
-plot(xgboost_roc,col="red")
-plot(net_roc,add = TRUE, col = 'green')
-plot(svm_roc,add = TRUE, col = 'black')
-plot(rf_roc,add = TRUE, col =  'blue')
-plot(lg_roc,add = TRUE, col =  'pink')
-legend("bottomright",
-       title = "rocs of different models",c("xgboost","BPNN","SVM","RF","LR"),
-       legend = c("xgboost","BPNN","SVM","RF","LR"),
-       col = c("red","green","black","blue","pink"),
-       lty = 1,lwd =2)
-       
-### 3.2 rocs of different models in one plotc-2
-library(pROC)
-library(ggplot2)
-#g <- ggroc(xgboost_roc)
-#g + theme_minimal() + ggtitle("ROCS")+
-#  geom_segment(aes(x=1,xend=0),y=0,yend=1,color = "red",linetype = 6)
-#gl <- ggroc(xgboost_roc, legacy.axes = TRUE)
-#gl
-#gl + xlab("1-specificity") + ylab("sensitivity") + 
-  geom_segment(aes(x = 0, xend = 1, y = 0, yend = 1), color="darkgrey", linetype="dashed")
 
-g2 <- ggroc(list(xGboost=xgboost_roc, BPNN=net_roc, SVM=svm_roc,Rf=rf_roc,
-                 LG=lg_roc))
-g2 
+### 3 plot means of AUC for models.
+library(readxl)
+xgb_d <- read.csv("proteins_data.csv/simulation mean for xgb")
+bpnn_d <- read.csv("proteins_data.csv/simulation mean for bpnn")
+svm_d <- read.csv("proteins_data.csv/simulation mean for svm")
+rf_d <- read.csv("proteins_data.csv/simulation mean for rf")
+lr_d <- read.csv("proteins_data.csv/simulation mean for lr")
+
+# dataset pretreatment---rename variable
+names(xgb_d)[1] <- "ID"
+names(xgb_d)[2] <- "XGBoost"
+as.data.frame(xgb_d)
+
+names(bpnn_d)[1] <- "ID"
+names(bpnn_d)[2] <- "BPNN"
+as.data.frame(bpnn_d)
+
+names(svm_d)[1] <- "ID"
+names(svm_d)[2] <- "SVM"
+as.data.frame(svm_d)
+
+names(rf_d)[1] <- "ID"
+names(rf_d)[2] <- "RF"
+as.data.frame(rf_d)
+
+names(lr_d)[1] <- "ID"
+names(lr_d)[2] <- "LR"
+as.data.frame(lr_d)
+
+# dataset pretreatment---integrate 5 dataset
+d12 <- merge(xgb_d,bpnn_d)
+d123 <- merge(d12,svm_d)
+d1234 <- merge(d123,rf_d)
+d5 <- merge(d1234,lr_d)
+
+
+# plot boxplot by using ggplot2
+#install.packages("gridExtra")
+#install.packages("gapminder")
+library(ggplot2)
+library(gridExtra)
+library(gapminder)
+library(dplyr)
+d5 <- d5[,-1]
+p1 <- boxplot(d5,col = c('blue','green','orange','yellow','purple'), main = "Boxplot for AUC of 5 models")
+names(d5)
+d5$ID <- c(1:200)
+mydata <- melt(d5,   
+               id.vars='ID',   
+               variable.name="models",
+               value.name="AUC")
+
+# install.packages("RColorBrewer")
+library(RColorBrewer)
+ggplot(mydata, aes(x = models, y = AUC)) +
+  geom_boxplot() +
+  theme_minimal()
+
+# more parameters to improve the plot
+ggplot(mydata, aes(x = models, y = AUC)) + 
+  geom_boxplot(fill = brewer.pal(5, "Set2"))  +  
+  labs(x= "models", y = "AUC", title = "Mean values of AUC of 5 models") + 
+  theme(plot.title = element_text(hjust = 0.5)) 
+
+
+
+# plot for CIs of AUC of models
+xgb_d <- read.csv("proteins_data.csv/simulation ci for xgb")
+bpnn_d <- read.csv("proteins_data.csv/simulation ci for bpnn")
+svm_d <- read.csv("proteins_data.csv/simulation ci for svm")
+rf_d <- read.csv("proteins_data.csv/simulation ci for rf")
+lr_d <- read.csv("proteins_data.csv/simulation ci for lr")
+
+# dataset pretreatment---rename variable
+names(xgb_d)[1] <- "ID"
+names(xgb_d)[2] <- "XGBoost"
+as.data.frame(xgb_d)
+
+names(bpnn_d)[1] <- "ID"
+names(bpnn_d)[2] <- "BPNN"
+as.data.frame(bpnn_d)
+
+names(svm_d)[1] <- "ID"
+names(svm_d)[2] <- "SVM"
+as.data.frame(svm_d)
+
+names(rf_d)[1] <- "ID"
+names(rf_d)[2] <- "RF"
+as.data.frame(rf_d)
+
+names(lr_d)[1] <- "ID"
+names(lr_d)[2] <- "LR"
+as.data.frame(lr_d)
+
+# dataset pretreatment---integrate 5 dataset
+d12 <- merge(xgb_d,bpnn_d)
+d123 <- merge(d12,svm_d)
+d1234 <- merge(d123,rf_d)
+d5 <- merge(d1234,lr_d)
+
+d5 <- d5[,-1]
+d5$ID <- c(1:29)
+mydata2 <- melt(d5,   
+               id.vars='ID', 
+               variable.name="models"
+               value.name="AUC")
+mydata2 <- mydata2[-c(1:29),]
+# install.packages("RColorBrewer")
+library(RColorBrewer)
+ggplot(mydata2, aes(x = models, y = AUC)) +
+  geom_boxplot() +
+  theme_minimal()
+
+ggplot(mydata2, aes(x = models, y = AUC)) + 
+  geom_boxplot(fill = brewer.pal(5, "Set2"))  +  
+  labs(x= "models", y = "AUC", title = "CI of AUC of 5 models") + 
+  theme(plot.title = element_text(hjust = 0.5)) #
+
+
+# roc
+#install.packages("plotROC")
+library(plotROC)
+longtest <-  melt_roc(data,"depression",c(2:10))
+head(longtest)
+longtest$protein <- longtest$name
+p2 <- ggplot(longtest,aes(d=D,m=M,color = protein))+
+    geom_roc(size = 0.5, labelsize = 3, pointsize = 0.3, labels = FALSE)+
+    style_roc(xlab = 'False Positive Fraction', ylab = "True Positive Fraction",
+              guide = FALSE) + 
+   labs(title = "ROC of 9 proteins")+
+   theme(plot.title = element_text(hjust = 0.5)) 
+p2
+
+# more parameters for polish
+p3 <- ggplot(data_long,aes(y=num,x=depression))+
+  geom_boxplot(aes(fill=depression))+
+  labs(x = "State of Depression", y='Protein Content', title = 'Comparisons of protein contents in terms of the state of depression')+
+  facet_wrap(~index,scales = "free")+
+  guides(fill="none")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+p3
+
+
+# 4 plot the Spearman correlations
+depression_select_100 <- read.csv("proteins_data.csv") # load the dataset again
+#install.packages('Hmisc')
+library(Hmisc)
+spearman_cor <- function(data){
+  s_cor <- vector()
+  for (i in 1:9) {
+    s_cor[i] <- cor(data[,i],data[,10])
+  }
+  return(s_cor)
+}
+spearman_cor2 <- function(data){
+  s_cor <- vector()
+  s_cor_p <- vector()
+  for (i in 1:9) {
+    rcorr <- rcorr(data[,i],data[,10])
+    s_cor[i] <- rcorr$r[1,2]
+    s_cor_p[i] <- rcorr$P[1,2]
+  }
+  list=list(cor=s_cor,p=s_cor_p)
+  return(list)
+}
+cor <- spearman_cor2(depression_select_100)$cor
+cor <- spearman_cor(depression_select_100)
+color <- c(1,1,0,1,0,1,1,1,0)
+cor <- cbind(cor,colnames(depression_select_100)[1:9],color)
+cor <- as.data.frame(cor)
+cor[,1] <- as.numeric(cor[,1])
+colnames(cor) <- c("Spearmean_corr.coeff","name","color")
+cor[,2] <- as.factor(cor[,2])
+
+p4 <- ggplot(data = cor,aes(x=name,y=Spearmean_corr.coeff,fill=color))+
+  geom_bar(stat ="identity")+
+  coord_flip()+
+  scale_x_discrete(limits=c("Q99784","P558" ,"B7ZKJ8",
+                            "P48637","AA87WSY6","J3QRN2",
+                            "Q14676","AA3B3IRN5","O15144"))+
+  labs(x = "Proteins", y='Coefficients of Spearman correlation', title = 'Values of Spearman correlation')+
+  guides(fill="none")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+p4
+
+#Construct the table in the paper
+pp <- spearman_cor2(depression_select_100)$p
+cc <- spearman_cor2(depression_select_100)$cor
+df <- as.data.frame(cbind(colnames(depression_select_100)[1:9],cc,pp))
+df[,2] <- as.numeric(df[,2])
+df[,3] <- as.numeric(df[,3])
+colnames(df) <- c("Protein","Spearmean_corr.coeff","p.value")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
