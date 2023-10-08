@@ -1,0 +1,83 @@
+#1. install and load the packages.
+library(foreign)
+library(rms)
+
+#2. load the dataset
+d06 <- read.csv("proteins.csv")
+# add the depression score, which can be seen in the supplementary material, this is not necessity for the following analysis.
+# bc$depression_score <- c(14,0,16,11,17,4,12,4,14,9,16,4,
+#                         14,9,19,7,19,10,12,9,12,8,13,4,
+#                         16,9,18,6,15,8,14,2,12,9,20,11,
+#                         17,11,19,10,15,8,16,10,13,3,22,5)
+d06$depression <- as.factor(d06$depression)
+d06$Dep <- d06$depression
+
+#3. scale the data 
+dd <- datadist(d06)
+options(datadist="dd")
+
+#install.packages('regplot')
+library(regplot)
+
+#4. the LR model only using proteins selected by all algorithms, Figure 10 in the paper.
+fit1 <- glm(Dep ~ P558 + P48637 + O15144 + J3QRN2, 
+            family = "binomial", data=d06 )
+
+regplot(fit1,
+        plots = c("density", "boxes"), 
+        observation = d06[1,], 
+        center = T, # 
+        subticks = F,
+        droplines = T,
+        title = "Nomogram of proteins selected by more than four algorithms",
+        points = F, # 
+        odds = F, # 
+        showP = F, #
+        rank = NULL, # 
+        interval='confidence', # 
+        clickable = T, # 
+        dencol="#61D8D6",boxcol="#4da0a0",
+        leftlabel = T
+)
+
+
+#5. the LR model only using proteins selected by more than two algorithms, Figure 10 in the paper.
+fit2 <- glm(Dep ~ Q99784 + B7ZKJ8 + AA3B3IRN5 + Q14676 + AA87WSY6, family = "binomial", data=d06 )
+
+regplot(fit2,
+        plots = c("density", "boxes"), 
+        observation = d06[1,],  
+        center = T, # 
+        subticks = F,
+        droplines = T,
+        title = "Nomogram of proteins selected by more than two algorithms",
+        points = F, #
+        odds = F, # 
+        showP = F, # 
+        rank = NULL, # 
+        interval='confidence', # 
+        clickable = T, #
+        dencol="#D74F0E",boxcol="#41B7C4FF"
+)
+
+# 6. the LR model using all nine feature proteins, Figure 11 in the paper.
+fit3 <- glm(Dep ~ P558 + P48637 + O15144 + J3QRN2 + Q99784 + B7ZKJ8 + AA3B3IRN5 + Q14676 + AA87WSY6, 
+            family = "binomial", data=d06 )
+
+regplot(fit3,
+        plots = c("density", "boxes"), ##shapes of continuous variables，like "no plot" "density" "boxes" "ecdf" "bars" "boxplot" "violin" "bean" "spikes"；
+                                       ##shapes of category variables，like "no plot" "boxes" "bars" "spikes"
+        observation = d06[1,], #observation by row or column 
+        center = T, # Align variables
+        subticks = F, # whether or not the subticks
+        droplines = T,#the vertical lines
+        title = "Nomogram of all feature proteins", # title according to background
+        points = F, # options about intercepts
+        odds = F, # whether show the values of OR or not
+        showP = F, # emphaisize the significant variables
+        rank = NULL, # ordering the variables 
+        interval='confidence', # display intervals
+        clickable = T, # option for dynamic interaction
+        dencol="#20B2AA", boxcol="#4da0a0",
+        leftlabel = T
+)
